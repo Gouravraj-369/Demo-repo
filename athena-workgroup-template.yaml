@@ -1,0 +1,434 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation template for Athena workgroup configuration with S3 buckets for query results and spill data'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name for resource naming
+  
+  WorkgroupName:
+    Type: String
+    Default: analytics-workgroup
+    Description: Name of the Athena workgroup
+  
+  QueryResultsBucketName:
+    Type: String
+    Description: Name for the S3 bucket to store Athena query results
+    Default: athena-query-results
+  
+  SpillBucketName:
+    Type: String
+    Description: Name for the S3 bucket to store Athena spill data
+    Default: athena-spill-data
+  
+  DataCatalogBucketName:
+    Type: String
+    Description: Name for the S3 bucket containing data for Athena queries
+    Default: athena-data-catalog
+  
+  EnableQueryResultEncryption:
+    Type: String
+    Default: SSE_S3
+    AllowedValues: [SSE_S3, SSE_KMS, CSE_KMS]
+    Description: Encryption type for query results
+  
+  EnableSpillEncryption:
+    Type: String
+    Default: SSE_S3
+    AllowedValues: [SSE_S3, SSE_KMS, CSE_KMS]
+    Description: Encryption type for spill data
+  
+  KMSKeyId:
+    Type: String
+    Default: ''
+    Description: KMS Key ID for encryption (required if using SSE_KMS or CSE_KMS)
+  
+  MaxQueryExecutionTime:
+    Type: Number
+    Default: 30
+    Description: Maximum query execution time in minutes
+  
+  BytesScannedCutoffPerQuery:
+    Type: Number
+    Default: 1000000000
+    Description: Maximum bytes scanned per query (1GB default)
+  
+  RequesterPays:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Whether queries should use requester pays for S3 access
+
+Conditions:
+  UseKMSEncryption: !Or
+    - !Equals [!Ref EnableQueryResultEncryption, SSE_KMS]
+    - !Equals [!Ref EnableQueryResultEncryption, CSE_KMS]
+    - !Equals [!Ref EnableSpillEncryption, SSE_KMS]
+    - !Equals [!Ref EnableSpillEncryption, CSE_KMS]
+  
+  HasKMSKeyId: !Not [!Equals [!Ref KMSKeyId, '']]
+
+Resources:
+  # S3 Bucket for Athena Query Results
+  QueryResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${QueryResultsBucketName}-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If
+                - UseKMSEncryption
+                - !If
+                  - HasKMSKeyId
+                  - !Ref KMSKeyId
+                  - !Ref AWS::NoValue
+                - AES256
+              KMSMasterKeyID: !If
+                - UseKMSEncryption
+                - !If
+                  - HasKMSKeyId
+                  - !Ref KMSKeyId
+                  - !Ref AWS::NoValue
+                - !Ref AWS::NoValue
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldQueryResults
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpirationInDays: 7
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref QueryResultsLogGroup
+
+  # S3 Bucket for Athena Spill Data
+  SpillBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${SpillBucketName}-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If
+                - UseKMSEncryption
+                - !If
+                  - HasKMSKeyId
+                  - !Ref KMSKeyId
+                  - !Ref AWS::NoValue
+                - AES256
+              KMSMasterKeyID: !If
+                - UseKMSEncryption
+                - !If
+                  - HasKMSKeyId
+                  - !Ref KMSKeyId
+                  - !Ref AWS::NoValue
+                - !Ref AWS::NoValue
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldSpillData
+            Status: Enabled
+            ExpirationInDays: 7
+            NoncurrentVersionExpirationInDays: 3
+
+  # S3 Bucket for Data Catalog (example)
+  DataCatalogBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${DataCatalogBucketName}-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # CloudWatch Log Group for Query Results
+  QueryResultsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/athena/${WorkgroupName}-${Environment}'
+      RetentionInDays: 14
+
+  # IAM Role for Athena Service
+  AthenaServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AthenaServiceRole-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: athena.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAthenaServiceRolePolicy
+      Policies:
+        - PolicyName: AthenaS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${QueryResultsBucket}/*'
+                  - !Sub '${QueryResultsBucket}'
+                  - !Sub '${SpillBucket}/*'
+                  - !Sub '${SpillBucket}'
+                  - !Sub '${DataCatalogBucket}/*'
+                  - !Sub '${DataCatalogBucket}'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource: !Sub '${QueryResultsLogGroup}'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:BatchGetPartition
+                Resource: '*'
+
+  # IAM Role for Users/Applications using Athena
+  AthenaUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AthenaUserRole-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AthenaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - athena:*
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub '${QueryResultsBucket}/*'
+                  - !Sub '${QueryResultsBucket}'
+                  - !Sub '${SpillBucket}/*'
+                  - !Sub '${SpillBucket}'
+                  - !Sub '${DataCatalogBucket}/*'
+                  - !Sub '${DataCatalogBucket}'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:BatchGetPartition
+                  - glue:CreateDatabase
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:DeleteTable
+                Resource: '*'
+
+  # Athena Workgroup
+  AthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub '${WorkgroupName}-${Environment}'
+      Description: !Sub 'Athena workgroup for ${Environment} environment'
+      State: ENABLED
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${QueryResultsBucket}/query-results/'
+          EncryptionConfiguration:
+            EncryptionOption: !Ref EnableQueryResultEncryption
+            KmsKey: !If
+              - UseKMSEncryption
+              - !If
+                - HasKMSKeyId
+                - !Ref KMSKeyId
+                - !Ref AWS::NoValue
+              - !Ref AWS::NoValue
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        RequesterPaysEnabled: !Ref RequesterPays
+        BytesScannedCutoffPerQuery: !Ref BytesScannedCutoffPerQuery
+        EngineVersion:
+          SelectedEngineVersion: 'Athena engine version 3'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Analytics
+
+  # Athena Data Catalog (Glue Catalog)
+  AthenaDataCatalog:
+    Type: AWS::Glue::CatalogDatabase
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      DatabaseInput:
+        Name: !Sub '${Environment}_analytics_db'
+        Description: !Sub 'Analytics database for ${Environment} environment'
+        Parameters:
+          classification: parquet
+          typeOfData: file
+
+  # S3 Bucket Policy for Query Results
+  QueryResultsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref QueryResultsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAthenaAccess
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !GetAtt AthenaServiceRole.Arn
+                - !GetAtt AthenaUserRole.Arn
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub '${QueryResultsBucket}/*'
+              - !Sub '${QueryResultsBucket}'
+
+  # S3 Bucket Policy for Spill Data
+  SpillBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SpillBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAthenaSpillAccess
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !GetAtt AthenaServiceRole.Arn
+                - !GetAtt AthenaUserRole.Arn
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub '${SpillBucket}/*'
+              - !Sub '${SpillBucket}'
+
+  # S3 Bucket Policy for Data Catalog
+  DataCatalogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataCatalogBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAthenaDataAccess
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !GetAtt AthenaServiceRole.Arn
+                - !GetAtt AthenaUserRole.Arn
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub '${DataCatalogBucket}/*'
+              - !Sub '${DataCatalogBucket}'
+
+Outputs:
+  WorkgroupName:
+    Description: Name of the Athena workgroup
+    Value: !Ref AthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-WorkgroupName'
+
+  QueryResultsBucket:
+    Description: S3 bucket for Athena query results
+    Value: !Ref QueryResultsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-QueryResultsBucket'
+
+  SpillBucket:
+    Description: S3 bucket for Athena spill data
+    Value: !Ref SpillBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-SpillBucket'
+
+  DataCatalogBucket:
+    Description: S3 bucket for data catalog
+    Value: !Ref DataCatalogBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DataCatalogBucket'
+
+  AthenaServiceRoleArn:
+    Description: ARN of the Athena service role
+    Value: !GetAtt AthenaServiceRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaServiceRoleArn'
+
+  AthenaUserRoleArn:
+    Description: ARN of the Athena user role
+    Value: !GetAtt AthenaUserRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaUserRoleArn'
+
+  DatabaseName:
+    Description: Name of the Glue database
+    Value: !Ref AthenaDataCatalog
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseName'
+
+  QueryResultsLocation:
+    Description: S3 location for query results
+    Value: !Sub 's3://${QueryResultsBucket}/query-results/'
+    Export:
+      Name: !Sub '${AWS::StackName}-QueryResultsLocation'
