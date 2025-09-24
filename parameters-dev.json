@@ -1,0 +1,26 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "dev"
+  },
+  {
+    "ParameterKey": "ProjectName",
+    "ParameterValue": "my-analytics-project"
+  },
+  {
+    "ParameterKey": "WorkgroupNames",
+    "ParameterValue": "analytics,reporting,adhoc"
+  },
+  {
+    "ParameterKey": "QueryResultsRetentionDays",
+    "ParameterValue": "30"
+  },
+  {
+    "ParameterKey": "SpillDataRetentionDays",
+    "ParameterValue": "7"
+  },
+  {
+    "ParameterKey": "EnableCloudWatchLogs",
+    "ParameterValue": "true"
+  }
+]

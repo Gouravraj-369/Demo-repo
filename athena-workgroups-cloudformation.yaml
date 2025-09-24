@@ -1,0 +1,346 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for AWS Athena workgroups with S3 buckets for query results and spill data'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name for resource naming
+
+  ProjectName:
+    Type: String
+    Default: my-project
+    Description: Project name for resource naming and tagging
+
+  WorkgroupNames:
+    Type: CommaDelimitedList
+    Default: "analytics,reporting,adhoc"
+    Description: Comma-delimited list of workgroup names to create
+
+  QueryResultsRetentionDays:
+    Type: Number
+    Default: 30
+    Description: Number of days to retain query results in S3
+
+  SpillDataRetentionDays:
+    Type: Number
+    Default: 7
+    Description: Number of days to retain spill data in S3
+
+  EnableCloudWatchLogs:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable CloudWatch logs for Athena workgroups
+
+Resources:
+  # S3 Bucket for Athena Query Results
+  AthenaQueryResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-athena-query-results-${Environment}-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldQueryResults
+            Status: Enabled
+            ExpirationInDays: !Ref QueryResultsRetentionDays
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: athena-query-results
+
+  # S3 Bucket for Athena Spill Data
+  AthenaSpillBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-athena-spill-${Environment}-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldSpillData
+            Status: Enabled
+            ExpirationInDays: !Ref SpillDataRetentionDays
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Purpose
+          Value: athena-spill-data
+
+  # IAM Role for Athena Service
+  AthenaServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-athena-service-role-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: athena.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAthenaFullAccess
+      Policies:
+        - PolicyName: AthenaS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:ListMultipartUploadParts
+                  - s3:AbortMultipartUpload
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "${AthenaQueryResultsBucket}/*"
+                  - !GetAtt AthenaQueryResultsBucket.Arn
+                  - !Sub "${AthenaSpillBucket}/*"
+                  - !GetAtt AthenaSpillBucket.Arn
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetPartition
+                  - glue:GetPartitions
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                  - glue:DeleteTable
+                Resource: "*"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # IAM Policy for Athena Users
+  AthenaUsersPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${ProjectName}-athena-users-policy-${Environment}"
+      Description: Policy for users to access Athena workgroups
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - athena:ListWorkGroups
+              - athena:GetWorkGroup
+              - athena:GetQueryExecution
+              - athena:GetQueryResults
+              - athena:StartQueryExecution
+              - athena:StopQueryExecution
+              - athena:ListQueryExecutions
+              - athena:GetDataCatalog
+              - athena:ListDataCatalogs
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:ListMultipartUploadParts
+              - s3:AbortMultipartUpload
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource:
+              - !Sub "${AthenaQueryResultsBucket}/*"
+              - !GetAtt AthenaQueryResultsBucket.Arn
+              - !Sub "${AthenaSpillBucket}/*"
+              - !GetAtt AthenaSpillBucket.Arn
+          - Effect: Allow
+            Action:
+              - glue:GetDatabase
+              - glue:GetDatabases
+              - glue:GetTable
+              - glue:GetTables
+              - glue:GetPartition
+              - glue:GetPartitions
+            Resource: "*"
+
+  # CloudWatch Log Group for Athena (optional)
+  AthenaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: EnableLogging
+    Properties:
+      LogGroupName: !Sub "/aws/athena/${ProjectName}-${Environment}"
+      RetentionInDays: 14
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+Conditions:
+  EnableLogging: !Equals [!Ref EnableCloudWatchLogs, 'true']
+
+# Custom Resource to create multiple workgroups
+Resources:
+  # Primary Analytics Workgroup
+  AnalyticsWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub "${ProjectName}-analytics-${Environment}"
+      Description: Analytics workgroup for business intelligence queries
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub "s3://${AthenaQueryResultsBucket}/analytics/"
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetrics: true
+        EngineVersion:
+          SelectedEngineVersion: "Athena engine version 3"
+        AdditionalConfiguration: !Sub |
+          spill_bucket=${AthenaSpillBucket}
+          spill_prefix=analytics-spill/
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: WorkgroupType
+          Value: analytics
+
+  # Reporting Workgroup
+  ReportingWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub "${ProjectName}-reporting-${Environment}"
+      Description: Reporting workgroup for scheduled and automated reports
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub "s3://${AthenaQueryResultsBucket}/reporting/"
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetrics: true
+        EngineVersion:
+          SelectedEngineVersion: "Athena engine version 3"
+        AdditionalConfiguration: !Sub |
+          spill_bucket=${AthenaSpillBucket}
+          spill_prefix=reporting-spill/
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: WorkgroupType
+          Value: reporting
+
+  # Ad-hoc Workgroup
+  AdhocWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Sub "${ProjectName}-adhoc-${Environment}"
+      Description: Ad-hoc workgroup for exploratory queries and development
+      WorkGroupConfiguration:
+        ResultConfiguration:
+          OutputLocation: !Sub "s3://${AthenaQueryResultsBucket}/adhoc/"
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetrics: true
+        EngineVersion:
+          SelectedEngineVersion: "Athena engine version 3"
+        AdditionalConfiguration: !Sub |
+          spill_bucket=${AthenaSpillBucket}
+          spill_prefix=adhoc-spill/
+        BytesScannedCutoffPerQuery: 1073741824  # 1GB limit for adhoc queries
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: WorkgroupType
+          Value: adhoc
+
+Outputs:
+  AthenaQueryResultsBucketName:
+    Description: Name of the S3 bucket for Athena query results
+    Value: !Ref AthenaQueryResultsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-QueryResultsBucket"
+
+  AthenaSpillBucketName:
+    Description: Name of the S3 bucket for Athena spill data
+    Value: !Ref AthenaSpillBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-SpillBucket"
+
+  AthenaServiceRoleArn:
+    Description: ARN of the Athena service role
+    Value: !GetAtt AthenaServiceRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-ServiceRoleArn"
+
+  AthenaUsersPolicyArn:
+    Description: ARN of the managed policy for Athena users
+    Value: !Ref AthenaUsersPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersPolicyArn"
+
+  AnalyticsWorkgroupName:
+    Description: Name of the Analytics workgroup
+    Value: !Ref AnalyticsWorkgroup
+    Export:
+      Name: !Sub "${AWS::StackName}-AnalyticsWorkgroup"
+
+  ReportingWorkgroupName:
+    Description: Name of the Reporting workgroup
+    Value: !Ref ReportingWorkgroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ReportingWorkgroup"
+
+  AdhocWorkgroupName:
+    Description: Name of the Ad-hoc workgroup
+    Value: !Ref AdhocWorkgroup
+    Export:
+      Name: !Sub "${AWS::StackName}-AdhocWorkgroup"
+
+  AthenaLogGroupName:
+    Condition: EnableLogging
+    Description: Name of the CloudWatch log group for Athena
+    Value: !Ref AthenaLogGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroup"
