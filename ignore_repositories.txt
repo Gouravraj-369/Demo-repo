@@ -1,0 +1,37 @@
+# Ignore repositories that do not need Trivy security scanning
+# Add repository paths here (one per line)
+# Use regex patterns for flexible matching
+
+# Example specific repositories to ignore:
+# ccm/legacy-project
+# ccm/documentation-only
+# ccm/archived-old-system
+
+# Common patterns to ignore:
+.*-docs$          # Documentation repositories
+.*-templates$     # Template repositories  
+.*-examples$      # Example repositories
+.*-test$          # Test repositories
+.*-demo$          # Demo repositories
+.*-sandbox$       # Sandbox repositories
+.*-playground$    # Playground repositories
+
+# Specific CCM repositories that might not need security scanning:
+ccm/.*-documentation$
+ccm/.*-wiki$
+ccm/.*-guides$
+ccm/.*-tutorials$
+
+# Archived or deprecated repositories (if not already archived in GitLab)
+ccm/old-.*
+ccm/deprecated-.*
+ccm/legacy-.*
+
+# Configuration and infrastructure repositories that might have different security requirements
+ccm/.*-config$
+ccm/.*-infrastructure$
+ccm/.*-terraform$
+ccm/.*-ansible$
+
+# Add your specific repositories below this line:
+# ccm/your-specific-repo

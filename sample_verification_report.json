@@ -1,0 +1,71 @@
+{
+  "summary": {
+    "timestamp": "2024-01-15T10:30:00.123456",
+    "total_repositories": 3,
+    "passed": 1,
+    "warnings": 1,
+    "failed": 1,
+    "success_rate": 33.3
+  },
+  "results": [
+    {
+      "repository": {
+        "id": 1,
+        "name": "sample-app",
+        "path": "ccm/sample-app",
+        "web_url": "https://gitlab.com/ccm/sample-app",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": true,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": "project: \"ccm/library\"",
+        "issues": [],
+        "status": "PASS"
+      }
+    },
+    {
+      "repository": {
+        "id": 3,
+        "name": "microservice-api",
+        "path": "ccm/microservice-api",
+        "web_url": "https://gitlab.com/ccm/microservice-api",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": ".gitlab-ci.d/security-jobs/trivy-scan.yml",
+        "security_jobs_ref": null,
+        "issues": [
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "WARNING"
+      }
+    },
+    {
+      "repository": {
+        "id": 4,
+        "name": "documentation",
+        "path": "ccm/documentation",
+        "web_url": "https://gitlab.com/ccm/documentation",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": false,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": null,
+        "security_jobs_ref": null,
+        "issues": [
+          "No Trivy security scanning configuration found",
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "FAIL"
+      }
+    }
+  ]
+}

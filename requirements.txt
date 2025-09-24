@@ -1,0 +1,104 @@
+# Trivy Security Verification Automation Requirements
+# Core dependencies for the automation script
+
+# HTTP requests and API interactions
+requests>=2.31.0
+urllib3>=2.0.0
+
+# YAML configuration file parsing
+PyYAML>=6.0.1
+
+# Data validation and type hints
+pydantic>=2.0.0
+
+# Logging and monitoring
+structlog>=23.0.0
+
+# Progress bars for long-running operations
+tqdm>=4.65.0
+
+# Date and time handling
+python-dateutil>=2.8.2
+
+# JSON handling and validation
+jsonschema>=4.17.0
+
+# File system operations
+pathlib2>=2.3.7; python_version < "3.4"
+
+# Environment variable handling
+python-dotenv>=1.0.0
+
+# CLI argument parsing (built-in argparse is used, but click is an alternative)
+click>=8.1.0
+
+# HTML report generation
+Jinja2>=3.1.0
+MarkupSafe>=2.1.0
+
+# CSV export functionality
+pandas>=2.0.0
+
+# Excel export functionality (optional)
+openpyxl>=3.1.0
+
+# Email notifications (optional)
+smtplib2>=0.2.1
+
+# Slack notifications (optional)
+slack-sdk>=3.19.0
+
+# Git operations (for advanced features)
+GitPython>=3.1.31
+
+# Security and cryptography
+cryptography>=41.0.0
+
+# Performance monitoring
+psutil>=5.9.0
+
+# Development and testing dependencies
+pytest>=7.3.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.3.0
+
+# Documentation generation
+sphinx>=6.2.0
+sphinx-rtd-theme>=1.2.0
+
+# Virtual environment management
+virtualenv>=20.20.0
+
+# Configuration management
+configparser>=5.3.0
+
+# Regular expressions (built-in, but listed for completeness)
+# re - built-in module
+
+# Base64 encoding/decoding (built-in)
+# base64 - built-in module
+
+# JSON handling (built-in)
+# json - built-in module
+
+# Logging (built-in)
+# logging - built-in module
+
+# Command line argument parsing (built-in)
+# argparse - built-in module
+
+# File system operations (built-in)
+# os - built-in module
+# pathlib - built-in module (Python 3.4+)
+
+# Date and time (built-in)
+# datetime - built-in module
+
+# Type hints (built-in)
+# typing - built-in module
+
+# Data classes (built-in Python 3.7+)
+# dataclasses - built-in module

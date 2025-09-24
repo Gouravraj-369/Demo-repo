@@ -1,0 +1,71 @@
+{
+  "summary": {
+    "timestamp": "2025-09-24T22:55:10.957138",
+    "total_repositories": 3,
+    "passed": 1,
+    "warnings": 1,
+    "failed": 1,
+    "success_rate": 33.33333333333333
+  },
+  "results": [
+    {
+      "repository": {
+        "id": 1,
+        "name": "user-service",
+        "path": "ccm/user-service",
+        "web_url": "https://gitlab.com/ccm/user-service",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": true,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": "project: \"ccm/library\"",
+        "issues": [],
+        "status": "PASS"
+      }
+    },
+    {
+      "repository": {
+        "id": 2,
+        "name": "api-gateway",
+        "path": "ccm/api-gateway",
+        "web_url": "https://gitlab.com/ccm/api-gateway",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": ".gitlab-ci.d/security-jobs/trivy-scan.yml",
+        "security_jobs_ref": null,
+        "issues": [
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "WARNING"
+      }
+    },
+    {
+      "repository": {
+        "id": 3,
+        "name": "old-service",
+        "path": "ccm/old-service",
+        "web_url": "https://gitlab.com/ccm/old-service",
+        "archived": false,
+        "default_branch": "main"
+      },
+      "verification": {
+        "has_trivy_config": false,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": null,
+        "security_jobs_ref": null,
+        "issues": [
+          "No Trivy security scanning configuration found",
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "FAIL"
+      }
+    }
+  ]
+}

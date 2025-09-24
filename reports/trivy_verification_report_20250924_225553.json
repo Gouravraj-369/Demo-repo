@@ -1,0 +1,112 @@
+{
+  "summary": {
+    "timestamp": "2025-09-24T22:55:53.731136",
+    "total_repositories": 5,
+    "passed": 3,
+    "warnings": 1,
+    "failed": 1,
+    "success_rate": 60.0
+  },
+  "results": [
+    {
+      "repository": {
+        "id": 1,
+        "name": "user-service",
+        "path_with_namespace": "ccm/user-service",
+        "web_url": "https://gitlab.com/ccm/user-service",
+        "archived": false,
+        "default_branch": "main",
+        "last_activity_at": "2024-01-15T10:30:00Z"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": true,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": "- project: \"ccm/library\"",
+        "issues": [],
+        "status": "PASS"
+      }
+    },
+    {
+      "repository": {
+        "id": 2,
+        "name": "payment-service",
+        "path_with_namespace": "ccm/payment-service",
+        "web_url": "https://gitlab.com/ccm/payment-service",
+        "archived": false,
+        "default_branch": "main",
+        "last_activity_at": "2024-01-14T15:45:00Z"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": true,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": "- project: \"ccm/library\"",
+        "issues": [],
+        "status": "PASS"
+      }
+    },
+    {
+      "repository": {
+        "id": 3,
+        "name": "notification-service",
+        "path_with_namespace": "ccm/notification-service",
+        "web_url": "https://gitlab.com/ccm/notification-service",
+        "archived": false,
+        "default_branch": "main",
+        "last_activity_at": "2024-01-13T09:20:00Z"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": true,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": "- project: \"ccm/library\"",
+        "issues": [],
+        "status": "PASS"
+      }
+    },
+    {
+      "repository": {
+        "id": 4,
+        "name": "api-gateway",
+        "path_with_namespace": "ccm/api-gateway",
+        "web_url": "https://gitlab.com/ccm/api-gateway",
+        "archived": false,
+        "default_branch": "main",
+        "last_activity_at": "2024-01-12T14:10:00Z"
+      },
+      "verification": {
+        "has_trivy_config": true,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": "Referenced in CI configuration",
+        "security_jobs_ref": null,
+        "issues": [
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "WARNING"
+      }
+    },
+    {
+      "repository": {
+        "id": 7,
+        "name": "old-service",
+        "path_with_namespace": "ccm/old-service",
+        "web_url": "https://gitlab.com/ccm/old-service",
+        "archived": false,
+        "default_branch": "main",
+        "last_activity_at": "2024-01-08T13:45:00Z"
+      },
+      "verification": {
+        "has_trivy_config": false,
+        "has_security_jobs_ref": false,
+        "trivy_file_path": null,
+        "security_jobs_ref": null,
+        "issues": [
+          "No Trivy security scanning configuration found",
+          "No reference to security-jobs.yml found in GitLab CI configuration"
+        ],
+        "status": "FAIL"
+      }
+    }
+  ]
+}
