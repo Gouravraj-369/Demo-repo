@@ -1,0 +1,191 @@
+# Trivy Security Verification Configuration
+# This file contains all configuration parameters for the verification automation
+
+# GitLab Configuration
+gitlab:
+  # Base URL of your GitLab instance
+  base_url: "https://gitlab.com"
+  
+  # Default group ID (can be overridden via command line)
+  default_group_id: "ccm"
+  
+  # API settings
+  api:
+    # Number of repositories to fetch per API call
+    per_page: 100
+    
+    # Maximum number of retries for failed API calls
+    max_retries: 3
+    
+    # Timeout for API requests (seconds)
+    timeout: 30
+
+# Library Repository Configuration
+library:
+  # Path to the centralized library repository
+  repository_path: "ccm/library"
+  
+  # Default branch for the library repository
+  default_branch: "main"
+  
+  # Path to security jobs configuration file
+  security_jobs_path: ".gitlab-ci.d/security-jobs.yml"
+  
+  # Path to Trivy scan configuration file
+  trivy_scan_path: ".gitlab-ci.d/security-jobs/trivy-scan.yml"
+
+# Security Tools Configuration
+security_tools:
+  # List of required security tools to check for
+  required_tools:
+    - "trivy"
+    - "checkov"
+    - "semgrep"
+  
+  # Additional security tools to check for (optional)
+  optional_tools:
+    - "bandit"
+    - "safety"
+    - "hadolint"
+
+# Verification Rules
+verification:
+  # Whether to require Trivy configuration
+  require_trivy: true
+  
+  # Whether to require security jobs reference
+  require_security_jobs_ref: true
+  
+  # Whether to check for direct Trivy file presence
+  check_direct_trivy_file: true
+  
+  # Whether to validate Trivy configuration content
+  validate_trivy_content: false
+  
+  # Minimum required Trivy version (if validation is enabled)
+  min_trivy_version: "0.18.0"
+
+# File Patterns to Check
+file_patterns:
+  # GitLab CI configuration files
+  gitlab_ci_files:
+    - ".gitlab-ci.yml"
+    - ".gitlab-ci.yaml"
+  
+  # Security configuration files
+  security_files:
+    - ".gitlab-ci.d/security-jobs.yml"
+    - ".gitlab-ci.d/security-jobs/trivy-scan.yml"
+    - ".trivyignore"
+    - "trivy.yaml"
+    - "trivy.yml"
+
+# Output Configuration
+output:
+  # Output directory for reports
+  reports_dir: "reports"
+  
+  # Output formats to generate
+  formats:
+    - "json"
+    - "html"
+    - "console"
+  
+  # Whether to include detailed file contents in reports
+  include_file_contents: false
+  
+  # Maximum number of issues to report per repository
+  max_issues_per_repo: 10
+
+# Logging Configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  
+  # Log format
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Whether to log to file
+  log_to_file: true
+  
+  # Log file path
+  log_file: "trivy_verification.log"
+
+# Repository Filtering
+filtering:
+  # Whether to exclude archived repositories
+  exclude_archived: true
+  
+  # Whether to exclude empty repositories
+  exclude_empty: true
+  
+  # Whether to exclude repositories with no recent activity
+  exclude_inactive: false
+  
+  # Days of inactivity to consider a repository inactive
+  inactive_days: 365
+  
+  # Repository name patterns to exclude
+  exclude_patterns:
+    - ".*-docs$"
+    - ".*-templates$"
+    - ".*-examples$"
+    - ".*-test$"
+    - ".*-demo$"
+
+# Performance Settings
+performance:
+  # Number of concurrent API requests
+  max_concurrent_requests: 5
+  
+  # Delay between API requests (seconds)
+  request_delay: 0.1
+  
+  # Whether to use caching for API responses
+  enable_caching: true
+  
+  # Cache TTL (time to live) in seconds
+  cache_ttl: 3600
+
+# Notification Settings (for future enhancement)
+notifications:
+  # Whether to send notifications
+  enabled: false
+  
+  # Notification channels
+  channels:
+    - "slack"
+    - "email"
+  
+  # Slack webhook URL (if using Slack notifications)
+  slack_webhook: ""
+  
+  # Email configuration (if using email notifications)
+  email:
+    smtp_server: ""
+    smtp_port: 587
+    username: ""
+    password: ""
+    from_address: ""
+    to_addresses: []
+
+# Compliance and Reporting
+compliance:
+  # Whether to generate compliance reports
+  generate_compliance_report: true
+  
+  # Compliance standards to check against
+  standards:
+    - "OWASP"
+    - "NIST"
+    - "ISO27001"
+  
+  # Whether to include remediation suggestions
+  include_remediation: true
+  
+  # Severity levels for issues
+  severity_levels:
+    critical: ["missing_trivy_config", "no_security_scanning"]
+    high: ["outdated_trivy_version", "incomplete_security_jobs"]
+    medium: ["missing_optional_tools", "configuration_warnings"]
+    low: ["style_issues", "documentation_gaps"]
