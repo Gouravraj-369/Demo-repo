@@ -1,0 +1,15 @@
+{
+  "Parameters": {
+    "Environment": "dev",
+    "WorkgroupName": "analytics-workgroup",
+    "QueryResultsBucketName": "athena-query-results",
+    "SpillBucketName": "athena-spill-data",
+    "DataCatalogBucketName": "athena-data-catalog",
+    "EnableQueryResultEncryption": "SSE_S3",
+    "EnableSpillEncryption": "SSE_S3",
+    "KMSKeyId": "",
+    "MaxQueryExecutionTime": "30",
+    "BytesScannedCutoffPerQuery": "1000000000",
+    "RequesterPays": "false"
+  }
+}
