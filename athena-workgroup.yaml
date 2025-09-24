@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Athena WorkGroup configured to store query results in a designated S3 bucket with encryption and ACL.
+
+Parameters:
+  WorkGroupName:
+    Type: String
+    Default: analytics-wg
+    Description: Name of the Athena WorkGroup.
+  ResultsBucketName:
+    Type: String
+    Description: Name of the S3 bucket for Athena query results.
+  ResultsPrefix:
+    Type: String
+    Default: athena/results/
+    Description: S3 prefix for Athena query results (must end with a slash).
+  KmsKeyArn:
+    Type: String
+    Default: ''
+    Description: Optional KMS Key ARN for SSE_KMS encryption of results. Leave empty to use SSE_S3.
+
+Conditions:
+  UseKms: !Not [!Equals [!Ref KmsKeyArn, '']]
+
+Resources:
+  ResultsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ResultsBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerPreferred
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !If [UseKms, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
+            BucketKeyEnabled: true
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: false
+      VersioningConfiguration:
+        Status: Enabled
+
+  ResultsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ResultsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAthenaWriteResults
+            Effect: Allow
+            Principal:
+              Service: athena.amazonaws.com
+            Action:
+              - s3:PutObject
+              - s3:AbortMultipartUpload
+              - s3:ListBucketMultipartUploads
+              - s3:ListMultipartUploadParts
+              - s3:GetBucketLocation
+            Resource:
+              - !Sub '${ResultsBucket.Arn}'
+              - !Sub '${ResultsBucket.Arn}/${ResultsPrefix}*'
+          - Sid: EnforceTLS
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub '${ResultsBucket.Arn}'
+              - !Sub '${ResultsBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  AthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: !Ref WorkGroupName
+      Description: WorkGroup for SQL queries with enforced results location, encryption, and ACL.
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        RequesterPaysEnabled: false
+        EngineVersion:
+          SelectedEngineVersion: AUTO
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${ResultsBucketName}/${ResultsPrefix}'
+          EncryptionConfiguration:
+            EncryptionOption: !If [UseKms, SSE_KMS, SSE_S3]
+            KmsKey: !If [UseKms, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
+          AclConfiguration:
+            S3AclOption: BUCKET_OWNER_FULL_CONTROL
+
+Outputs:
+  WorkGroupNameOut:
+    Description: Name of the created Athena WorkGroup
+    Value: !Ref AthenaWorkGroup
+  ResultsS3Uri:
+    Description: S3 URI for Athena query results
+    Value: !Sub 's3://${ResultsBucketName}/${ResultsPrefix}'
+
